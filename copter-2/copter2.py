@@ -133,13 +133,17 @@ class Map(object):
         self.points = self.__free_points()
 
     def find_point_in_range(self, point, points, range):
-        start_p = self.find_point(point[0], point[1])[1]
-        rs = [(p, self.calc(start_p.x, p[0], start_p.y, p[1])) for p in [pp for pp in points]]
-        max = None
+        start_p = self.get_point(point[0], point[1])
+        rs = []
+        for p in points:
+            point_1 = self.get_point(p[0], p[1])
+            rs.append((p, self.calc(start_p.x, point_1.x, start_p.y, point_1.y)))
+       # rs = [(p, self.calc(start_p.x, self.find_point(p[0], p[1])[1].x, start_p.y, self.find_point(p[0], p[1])[1].y)) for p in points]
+        max_e = None
         for r in rs:
-            if max is None or max[1] < rs[1] <= range:
-                max = r
-        return max
+            if (max_e is None or max_e[1] < r[1] ) and r[1] <= range:
+                max_e = r
+        return max_e
 
     def get_points_to_call(self, point):
         x, y = 0, 0
@@ -328,12 +332,14 @@ class Copter(object):
 
     def fly_from_point_to_point(self, from_point, to_point, mass=0):
         path = math.sqrt(math.pow((from_point.x - to_point.x), 2) + math.pow((from_point.y - to_point.y), 2))
-        print "Start move {5} from {0}.{1} to {2}.{3} -- {4}".format(from_point.x, from_point.y, to_point.x, to_point.y,
-                                                                     self.env.now, self.id)
+        print "Start move {5} from {0}.{1} to {2}.{3} -- {4}|| Charge {6}".format(from_point.x, from_point.y, to_point.x, to_point.y,
+                                                                     self.env.now, self.id, self.charge)
         self.charge -= (path / (self.max_speed / (1 - (mass / self.MAX_MASS)))) * self.DISCHARGE_SPEED * 100
+        if  (path / (self.max_speed / (1 - (mass / self.MAX_MASS)))) * self.DISCHARGE_SPEED * 100 == 0:
+            print "qwe"
         yield self.env.timeout(path / (self.max_speed / (1 - (mass / self.MAX_MASS))))
-        print "End move {5} from {0}.{1} to {2}.{3} -- {4}".format(from_point.x, from_point.y, to_point.x, to_point.y,
-                                                                   self.env.now, self.id)
+        print "End move {5} from {0}.{1} to {2}.{3} -- {4}|| Charge {6}".format(from_point.x, from_point.y, to_point.x, to_point.y,
+                                                                   self.env.now, self.id, self.charge)
 
     def charge_time(self):
         c = 100 - self.charge
@@ -395,13 +401,16 @@ class Processor(object):
             b_point = self.map.get_point(best_point[0][0], best_point[0][1])
             if (copter is None):
                 print "qwe"
-                # distance = self.map.calc(best_point[0][0], way[counter][0], best_point[0][1], way[counter][1])
-            yield self.env.process(
-                copter.fly_from_point_to_point(self.map.get_point(way[counter][0], way[counter][1]), b_point))
-            self.env.process(b_point.put_copter(copter))
+
+            for xx in copter.fly_from_point_to_point(self.map.get_point(way[counter][0], way[counter][1]), b_point):
+                yield xx
+            yield self.env.process(b_point.put_copter(copter))
             new_copter = b_point.get_copter_by_task(task_id)
             if new_copter is None:
-                self.env.process(copter.do_charge())
+                for xx in copter.do_charge():
+                    yield xx
+
+                # self.env.process(copter.do_charge())
             else:
                 copter = new_copter
             counter += 1
