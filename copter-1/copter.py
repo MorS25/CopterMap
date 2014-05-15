@@ -1,6 +1,7 @@
 #coding=utf8
 import math
 from multiprocessing import Lock
+from numpy import mean
 import random
 import matplotlib.pyplot as plt
 import simpy
@@ -252,12 +253,18 @@ if __name__ == "__main__":
         env.timeout(15)
         copters.append(copter)
     env.run()
+    #Время полета коптеров
     for copter in copters:
         print copter.time
+
+
+
+    #График времени полета коптеров
     data = [(copters[i].time) for i in range(0, len(copters))]
-    # plt.plot(data)
-    # d = mean(data)
-    # plt.plot([mean(data) for i in range(0, len(data))])
+    plt.plot(data)
+    d = mean(data)
+    plt.plot([mean(data) for i in range(0, len(data))])
+    plt.figure()
 
     #Загрузка станций
     for points in (map.points):

@@ -8,7 +8,7 @@ from idGenerator import IdGenerator
 
 __author__ = 'root'
 
-
+#Точка зарядки/обмена
 class Point:
     def __init__(self, x, y, env=None, map=None, charge_speed=20):
         self.lock = Lock()
@@ -25,11 +25,13 @@ class Point:
             self.copters = [Copter(env, map)]
         self.reserved = []
 
+    #Получаем коптера по id задачи
     def get_copter_by_task(self, task):
         for r in self.reserved:
             if r[2] == task:
                 return r[0]
 
+    #Добавляем коптера на точку
     def put_copter(self, copter):
         self.copters.append(copter)
         yield self.env.process(copter.do_charge())
@@ -275,32 +277,24 @@ class Copter(object):
 
     def __init__(self, env, map, id=None):
         """
-
         @param env: environment
         @param map: map
         @param id:
         """
         self.env = env
         self.max_speed = self.MAX_SPEED
-        # self.mass = mass
         if id is None:
             self.id = IdGenerator().getId()
         else:
             self.id = id
-            # self.star_location = start_location
-        # self.end_location = end_location
         self.map = map
-        #self.action = env.process(self.run(0, (0,0), (0,0), 0))
 
         self.charge = 100
 
-
-        #self.action = env.process(self.run())
-
+    #ВОТ ЭТО не нужно в текущей версии
     def run(self, mass, star_location, end_location, task_id):
         if task_id == 0:
             yield self.env.timeout(0)
-        self.speed = self.max_speed / mass
         start = self.env.now
         way = (
             self.map.find_way(star_location[0], end_location[0], star_location[1], end_location[1]))
