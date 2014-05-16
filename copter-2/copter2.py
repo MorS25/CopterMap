@@ -3,6 +3,7 @@ import math
 from multiprocessing import Lock
 import random
 import simpy
+import matplotlib.pyplot as plt
 
 from idGenerator import IdGenerator
 
@@ -366,6 +367,7 @@ class Processor(object):
         self.map = map
         self.env = env
         self.copters_count = copters_count
+        self.res = []
 
     def process_ticket(self, star_location, end_location, mass, task_id):
         if task_id == 0:
@@ -396,6 +398,7 @@ class Processor(object):
                 break
 
         counter = 0
+        start = self.env.now
         while True:
             best_point = self.map.find_point_in_range(way[counter], [w for w in way[counter + 1:]], flying_range)
             b_point = self.map.get_point(best_point[0][0], best_point[0][1])
@@ -415,6 +418,8 @@ class Processor(object):
                 copter = new_copter
             counter += 1
             if best_point[0] == way[len(way) - 1]:
+                end = self.env.now
+                self.res.append((end-start, task_id))
                 break
 
 
@@ -433,6 +438,10 @@ if __name__ == "__main__":
         env.process(p.process_ticket((1024 * random.random(), 1024 * random.random()),
                                      (1024 * random.random(), 1024 * random.random()), random.random(), i))
     env.run()
+
+    plt.figure("Среднее время доставки 1")
+    plt.plot([x for (x, y) in p.res])
+    plt.show()
     # for i in range(0, 100):
     #     copter = Copter(env, map, 10, (1024 * random.random(), 1024 * random.random()),
     #                     (1024 * random.random(), 1024 * random.random()), (3 * random.random()), id=i)
