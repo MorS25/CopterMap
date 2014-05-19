@@ -1,6 +1,7 @@
 #coding=utf8
 import math
 from multiprocessing import Lock
+from numpy import mean
 import random
 import simpy
 import matplotlib.pyplot as plt
@@ -276,7 +277,7 @@ class Copter(object):
     #Скорость разрядки
     DISCHARGE_SPEED = 0.05
     #Максимальная скоость
-    MAX_SPEED = 10
+    MAX_SPEED = 300
     #Максимальная масса
     MAX_MASS = 15
 
@@ -387,6 +388,9 @@ class Processor(object):
         c_time = 0
         while True:
             best_point = self.map.find_point_in_range(way[counter], [w for w in way[counter + 1:]], flying_range)
+            if best_point is None:
+                print "ERROR in way. Flying range too small"
+                return
             b_point = self.map.get_point(best_point[0][0], best_point[0][1])
             distance = self.map.calc(best_point[0][0], way[counter][0], best_point[0][1], way[counter][1])
 
@@ -428,19 +432,22 @@ if __name__ == "__main__":
 
     # v = map.find_point(235, 642)
     # way = map.find_way(235, 854, 920, 150)
-    copters = []
-    map = Map(env, 1, 1, 1024, 1024, 64)
-    p = Processor(map, env, 10000)
-    for i in range(0, 30):
-        # copter = Copter(env, map)
-        # env.process(copter.run(1, (1024 * random.random(), 1024 * random.random()),
-        #                        (1024 * random.random(), 1024 * random.random()), i))
-        env.process(p.process_ticket((1024 * random.random(), 1024 * random.random()),
-                                     (1024 * random.random(), 1024 * random.random()), random.random(), i))
-    env.run()
+    res = []
+    for size in range(8, 12):
+        copters = []
+        map = Map(env, 1, 1, 10240, 10240, points=size*size)
+        p = Processor(map, env, 10000)
+        for i in range(0, 30):
+            # copter = Copter(env, map)
+            # env.process(copter.run(1, (1024 * random.random(), 1024 * random.random()),
+            #                        (1024 * random.random(), 1024 * random.random()), i))
+            env.process(p.process_ticket((10240 * random.random(), 10240 * random.random()),
+                                         (10240 * random.random(), 10240 * random.random()), random.random(), i))
+        env.run()
+        res.append((size, mean([x for (x, y) in p.res])))
 
     plt.figure("Среднее время доставки 1")
-    plt.plot([x for (x, y) in p.res])
+    plt.plot([x for (x, y) in res], [y for (x, y) in res])
     plt.show()
     # for i in range(0, 100):
     #     copter = Copter(env, map, 10, (1024 * random.random(), 1024 * random.random()),
