@@ -1,4 +1,6 @@
+from config import Config
 #coding=utf8
+import Tkinter as tk
 import math
 from multiprocessing import Lock
 from numpy import mean
@@ -36,7 +38,7 @@ class Point:
     #Добавляем коптера на точку
     def put_copter(self, copter):
         self.copters.append(copter)
-        yield self.env.process(copter.do_charge())
+
 
     def charge(self, time):
         self.lock.acquire()
@@ -128,7 +130,7 @@ class Map(object):
         #Пункты зарядки
         self.points = []
         self.env = env
-
+        self.copters = []
         #Вычисление
         counter = int(math.sqrt(points))
         self.weight = counter
@@ -140,7 +142,7 @@ class Map(object):
         for p in points:
             point_1 = self.get_point(p[0], p[1])
             rs.append((p, self.calc(start_p.x, point_1.x, start_p.y, point_1.y)))
-       # rs = [(p, self.calc(start_p.x, self.find_point(p[0], p[1])[1].x, start_p.y, self.find_point(p[0], p[1])[1].y)) for p in points]
+            # rs = [(p, self.calc(start_p.x, self.find_point(p[0], p[1])[1].x, start_p.y, self.find_point(p[0], p[1])[1].y)) for p in points]
         max_e = None
         for r in rs:
             if (max_e is None or max_e[1] < r[1] ) and r[1] <= range:
@@ -154,18 +156,22 @@ class Map(object):
                 if self.points[i][j] == point:
                     x, y = i, j
         res = []
-        while self.weight > x >= 0:
-            while 0 <= y < self.weight:
-                if x != point.x and y != point.y:
-                    res.append(self.points[x][y])
-                y -= 1
-            x -= 1
+        for i in range(-2, 3):
+            for j in range(-2, 3):
+                if 0 <= x + i < self.weight and 0 <= y + j < self.weight and (i != 0 and j != 0):
+                    res.append(self.points[x + i][y + j])
+            # while self.weight > x >= 0:
+        #     while 0 <= y < self.weight:
+        #         if x != point.x and y != point.y:
+        #             res.append(self.points[x][y])
+        #         y -= 1
+        #     x -= 1
         return res
 
     def __free_points(self):
         points = []
-        x_range = (self.last_x - self.start_x) / self.weight
-        y_range = (self.last_y - self.start_y) / self.weight
+        x_range = (self.last_x - self.start_x) / (self.weight + 1)
+        y_range = (self.last_y - self.start_y) / (self.weight + 1)
         for x in range(0, self.weight):
             points_x = []
             for y in range(0, self.weight):
@@ -177,6 +183,7 @@ class Map(object):
 
     def calc(self, x1, x2, y1, y2):
         return math.sqrt(math.pow((x1 - x2), 2) + math.pow((y1 - y2), 2))
+        self.x = x
 
     def print_map(self):
         print "#####################################################"
@@ -271,15 +278,15 @@ class Map(object):
 
 class Copter(object):
     #Скорость зарядки
-    CHARGE_SPEED = 20
+    CHARGE_SPEED = Config.CHARGE_SPEED
     #Скорость замены груза
-    EXCHANGE_TIME = 2
+    EXCHANGE_TIME = Config.EXCHANGE_TIME
     #Скорость разрядки
-    DISCHARGE_SPEED = 0.05
+    DISCHARGE_SPEED = Config.DISCHARGE_SPEED
     #Максимальная скоость
-    MAX_SPEED = 300
+    MAX_SPEED = Config.MAX_SPEED
     #Максимальная масса
-    MAX_MASS = 15
+    MAX_MASS = Config.MAX_MASS
 
     def __init__(self, env, map, id=None):
         """
@@ -287,15 +294,27 @@ class Copter(object):
         @param map: map
         @param id:
         """
+        Copter.CHARGE_SPEED = Config.CHARGE_SPEED
+        #Скорость замены груза
+        Copter.EXCHANGE_TIME = Config.EXCHANGE_TIME
+        #Скорость разрядки
+        Copter.DISCHARGE_SPEED = Config.DISCHARGE_SPEED
+        #Максимальная скоость
+        Copter.MAX_SPEED = Config.MAX_SPEED
+        #Максимальная масса
+        Copter.MAX_MASS = Config.MAX_MASS
         self.env = env
         self.max_speed = self.MAX_SPEED
+        print "MAX SPEED {0}".format(self.MAX_SPEED)
         if id is None:
             self.id = IdGenerator().getId()
         else:
             self.id = id
         self.map = map
-
+        self.start_charge = 0
         self.charge = 100
+        self.history = []
+        self.map.copters.append(self)
 
     #ВОТ ЭТО не нужно в текущей версии
     def run(self, mass, star_location, end_location, task_id):
@@ -333,15 +352,26 @@ class Copter(object):
 
 
     def fly_from_point_to_point(self, from_point, to_point, mass=0):
+
+        if self.charge != 100 and ((100 - self.charge) / self.CHARGE_SPEED) > (self.env.now - self.start_charge):
+            self.history.append(((from_point, self.env.now), (
+                from_point, self.env.now + ((100 - self.charge) / self.CHARGE_SPEED) - (self.env.now - self.start_charge))))
+            yield self.env.timeout(((100 - self.charge) / self.CHARGE_SPEED) - (self.env.now - self.start_charge))
+        else:
+            self.charge = 100
         path = math.sqrt(math.pow((from_point.x - to_point.x), 2) + math.pow((from_point.y - to_point.y), 2))
-        print "Start move {5} from {0}.{1} to {2}.{3} -- {4}|| Charge {6}".format(from_point.x, from_point.y, to_point.x, to_point.y,
-                                                                     self.env.now, self.id, self.charge)
+        print "Start move {5} from {0}.{1} to {2}.{3} -- {4}|| Charge {6}".format(from_point.x, from_point.y,
+                                                                                  to_point.x, to_point.y,
+                                                                                  self.env.now, self.id, self.charge)
         self.charge -= (path / (self.max_speed / (1 - (mass / self.MAX_MASS)))) * self.DISCHARGE_SPEED * 100
-        if  (path / (self.max_speed / (1 - (mass / self.MAX_MASS)))) * self.DISCHARGE_SPEED * 100 == 0:
+        if (path / (self.max_speed / (1 - (mass / self.MAX_MASS)))) * self.DISCHARGE_SPEED * 100 == 0:
             print "qwe"
+        self.history.append(((from_point, self.env.now), (
+                to_point, self.env.now + path / (self.max_speed / (1 - (mass / self.MAX_MASS))))))
         yield self.env.timeout(path / (self.max_speed / (1 - (mass / self.MAX_MASS))))
-        print "End move {5} from {0}.{1} to {2}.{3} -- {4}|| Charge {6}".format(from_point.x, from_point.y, to_point.x, to_point.y,
-                                                                   self.env.now, self.id, self.charge)
+        print "End move {5} from {0}.{1} to {2}.{3} -- {4}|| Charge {6}".format(from_point.x, from_point.y, to_point.x,
+                                                                                to_point.y,
+                                                                                self.env.now, self.id, self.charge)
 
     def charge_time(self):
         c = 100 - self.charge
@@ -350,11 +380,12 @@ class Copter(object):
 
     def do_charge(self):
         #Уровень зарядки в процентах
-        c = 100 - self.charge
+        self.start_charge = self.env.now
         print "Start charge {3} from {0}% to {1}% -- {2}".format(self.charge, 100, self.env.now, self.id)
-        yield self.env.timeout(c / self.CHARGE_SPEED)
-        self.charge = 100
-        print "End charge {1} -- {0}".format(self.env.now, self.id)
+        # yield self.env.timeout(c / self.CHARGE_SPEED)
+        # self.charge = 100
+        # print "End charge {1} -- {0}".format(self.env.now, self.id)
+
 
     def exchange(self):
         yield self.env.timeout(self.EXCHANGE_TIME)
@@ -371,6 +402,8 @@ class Processor(object):
         self.res = []
 
     def process_ticket(self, star_location, end_location, mass, task_id):
+
+        print "#### strt task {0}".format(task_id)
         if task_id == 0:
             yield self.env.timeout(0)
         start = self.env.now
@@ -378,7 +411,7 @@ class Processor(object):
             self.map.find_way(star_location[0], end_location[0], star_location[1], end_location[1]))
         if way is None or len(way) <= 1:
             return
-
+        print way
         copter = Copter(env=self.env, map=self.map)
         # flying_range = (Copter.DISCHARGE_SPEED / (copter.max_speed / (1 - (mass / copter.MAX_MASS)))) * (copter.charge / 100)
         flying_range = (copter.max_speed / (1 - (mass / copter.MAX_MASS))) * (
@@ -388,6 +421,7 @@ class Processor(object):
         c_time = 0
         while True:
             best_point = self.map.find_point_in_range(way[counter], [w for w in way[counter + 1:]], flying_range)
+            print best_point
             if best_point is None:
                 print "ERROR in way. Flying range too small"
                 return
@@ -411,11 +445,13 @@ class Processor(object):
 
             for xx in copter.fly_from_point_to_point(self.map.get_point(way[counter][0], way[counter][1]), b_point):
                 yield xx
-            yield self.env.process(b_point.put_copter(copter))
+
+            b_point.copters.append(copter)
+            copter.start_charge = self.env.now
+            # yield self.env.process(b_point.put_copter(copter))
             new_copter = b_point.get_copter_by_task(task_id)
             if new_copter is None:
-                for xx in copter.do_charge():
-                    yield xx
+                copter.start_charge = self.env.now
 
                 # self.env.process(copter.do_charge())
             else:
@@ -423,32 +459,110 @@ class Processor(object):
             counter += 1
             if best_point[0] == way[len(way) - 1]:
                 end = self.env.now
-                self.res.append((end-start, task_id))
+                self.res.append((end - start, task_id))
                 break
+        print "#### end task {0}".format(task_id)
 
+
+def timeout(env, time):
+    yield env.timeout(time)
+
+
+class Draw:
+    def __init__(self, map):
+        self.map = map
+        self.root = tk.Tk()
+        self.canvas = tk.Canvas(self.root, width=map.last_x / 10, height=map.last_y / 10, borderwidth=0,
+                                highlightthickness=0, bg="green")
+        self.canvas.grid()
+
+        # self.canvas.create_oval(100, 200, 200, 300, fill="blue", outline="#DDD", width=4)
+        self.canvas.pack(fill=None, expand=False)
+        self.points = []
+        for pp in map.points:
+            for p in pp:
+                self.points.append(
+                    self.canvas.create_oval(p.x / 10 - 4, p.y / 10 - 4, p.x / 10 + 4, p.y / 10 + 4, fill="blue",
+                                            outline="#DDD", width=4))
+            # self.canvas.pack()
+        objects = self.canvas.find_overlapping(map.points[0][0].x / 10 - 3, map.points[0][0].y / 10 - 3,
+                                               map.points[0][0].x / 10 + 3, map.points[0][0].y / 10 + 3)
+        self.canvas.bind("<Button-1>", self.callback)
+        # self.copter = Gyro(520, 520, self.canvas, self.root)
+        # for copter in map:
+        #
+        self.root.mainloop()
+    #
+    # def draw_copter(self, copter, x, y):
+    #
+    #     h = copter.history
+    #     for p in h:
+    #         if p[0][0] != p[1][0]:
+
+
+
+
+    def callback(self, event):
+        self.copter.move(self.copter.x - 10, self.copter.y - 10)
+
+
+    def _create_circle(self, x, y, r, **kwargs):
+        self.canvas.create_oval(x - r, y - r, x + r, y + r, **kwargs)
+
+
+class Gyro:
+    def __init__(self, x, y, canvas, root):
+        self.x = x
+        self.y = y
+        self.canvas = canvas
+        self.root = root
+        self.id = self.canvas.create_oval(x / 10 - 5, y / 10 - 5, x / 10 + 5, y / 10 + 5, fill="black", outline="#DDD",
+                                          width=4)
+
+    def move(self, x, y):
+        self.canvas.move(self.id, self.x - x, self.y - y)
+        print "move to {0}".format((x, y))
+        self.x = x
+        self.y = y
+
+
+# map = Map(simpy.Environment(), 1, 1, 10240, 10240, points=12 * 12)
+# Draw(map)
 
 if __name__ == "__main__":
-    env = simpy.Environment()
 
     # v = map.find_point(235, 642)
     # way = map.find_way(235, 854, 920, 150)
     res = []
-    for size in range(8, 12):
+    tasks = []
+    for i in range(0, 100):
+            tasks.append((
+                (10240 * random.random(), 10240 * random.random()), (100 * random.random(), 100 * random.random()),
+                    random.random(), i))
+    size = 8
+    for j in (80, 90, 110, 140):
+        Config.MAX_SPEED = j
+        env = simpy.Environment()
         copters = []
-        map = Map(env, 1, 1, 10240, 10240, points=size*size)
+        map = Map(env, 1, 1, 10240, 10240, points=size * size)
         p = Processor(map, env, 10000)
-        for i in range(0, 30):
+        c = 1
+        for i in tasks:
             # copter = Copter(env, map)
             # env.process(copter.run(1, (1024 * random.random(), 1024 * random.random()),
             #                        (1024 * random.random(), 1024 * random.random()), i))
-            env.process(p.process_ticket((10240 * random.random(), 10240 * random.random()),
-                                         (10240 * random.random(), 10240 * random.random()), random.random(), i))
+            env.process(p.process_ticket(i[0], i[1], i[2], i[3]))
+            if c % 100 == 0:
+                env.process(timeout(env, 30))
+            c += 1
         env.run()
-        res.append((size, mean([x for (x, y) in p.res])))
+        res.append((j, mean([x for (x, y) in p.res])))
 
     plt.figure("Среднее время доставки 1")
     plt.plot([x for (x, y) in res], [y for (x, y) in res])
     plt.show()
+
+    # Draw(map)
     # for i in range(0, 100):
     #     copter = Copter(env, map, 10, (1024 * random.random(), 1024 * random.random()),
     #                     (1024 * random.random(), 1024 * random.random()), (3 * random.random()), id=i)
