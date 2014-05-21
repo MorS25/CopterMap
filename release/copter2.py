@@ -1,9 +1,12 @@
-from config import Config
 #coding=utf8
+from IPython import get_ipython
+import ipywidgets
+from config import Config
+from IPython.display import HTML
 import Tkinter as tk
 import math
 from multiprocessing import Lock
-from numpy import mean
+from numpy import mean, linspace, float64
 import random
 import simpy
 import matplotlib.pyplot as plt
@@ -58,7 +61,7 @@ class Point:
             self.copters.remove(c)
             self.reserved.append((c, time, task_id))
             self.lock.release()
-            print "Copter {0} is reserved to {1} by task {2} at {3}".format(c.id, time, task_id, (self.x, self.y))
+            # print "Copter {0} is reserved to {1} by task {2} at {3}".format(c.id, time, task_id, (self.x, self.y))
             return
         if len(self.reserved) == 0:
             points = self.map.get_points_to_call(self)
@@ -82,8 +85,8 @@ class Point:
             self.lock.release()
             if cc is not None:
                 self.lock.acquire()
-                print "Copter {0} rereserved to {1} by task {2} at {3}".format(cc[0].id, time, task_id,
-                                                                               (self.x, self.y))
+                # print "Copter {0} rereserved to {1} by task {2} at {3}".format(cc[0].id, time, task_id,
+                #                                                                (self.x, self.y))
                 self.reserved.remove(cc)
                 self.reserved.append((cc[0], time, task_id))
                 self.reserved.append((copter, cc[1], cc[2]))
@@ -109,7 +112,7 @@ class Point:
             c = self.copters[0]
             self.copters.remove(c)
             self.lock.release()
-            print "Copter {0} going help from {1} to {2}".format(c.id, (self.x, self.y), (point.x, point.y))
+            # print "Copter {0} going help from {1} to {2}".format(c.id, (self.x, self.y), (point.x, point.y))
             return c
         return None
 
@@ -305,7 +308,7 @@ class Copter(object):
         Copter.MAX_MASS = Config.MAX_MASS
         self.env = env
         self.max_speed = self.MAX_SPEED
-        print "MAX SPEED {0}".format(self.MAX_SPEED)
+        # print "MAX SPEED {0}".format(self.MAX_SPEED)
         if id is None:
             self.id = IdGenerator().getId()
         else:
@@ -360,18 +363,18 @@ class Copter(object):
         else:
             self.charge = 100
         path = math.sqrt(math.pow((from_point.x - to_point.x), 2) + math.pow((from_point.y - to_point.y), 2))
-        print "Start move {5} from {0}.{1} to {2}.{3} -- {4}|| Charge {6}".format(from_point.x, from_point.y,
-                                                                                  to_point.x, to_point.y,
-                                                                                  self.env.now, self.id, self.charge)
+        # print "Start move {5} from {0}.{1} to {2}.{3} -- {4}|| Charge {6}".format(from_point.x, from_point.y,
+        #                                                                           to_point.x, to_point.y,
+        #                                                                           self.env.now, self.id, self.charge)
         self.charge -= (path / (self.max_speed / (1 - (mass / self.MAX_MASS)))) * self.DISCHARGE_SPEED * 100
         if (path / (self.max_speed / (1 - (mass / self.MAX_MASS)))) * self.DISCHARGE_SPEED * 100 == 0:
             print "qwe"
         self.history.append(((from_point, self.env.now), (
                 to_point, self.env.now + path / (self.max_speed / (1 - (mass / self.MAX_MASS))))))
         yield self.env.timeout(path / (self.max_speed / (1 - (mass / self.MAX_MASS))))
-        print "End move {5} from {0}.{1} to {2}.{3} -- {4}|| Charge {6}".format(from_point.x, from_point.y, to_point.x,
-                                                                                to_point.y,
-                                                                                self.env.now, self.id, self.charge)
+        # print "End move {5} from {0}.{1} to {2}.{3} -- {4}|| Charge {6}".format(from_point.x, from_point.y, to_point.x,
+        #                                                                         to_point.y,
+                                                                                # self.env.now, self.id, self.charge)
 
     def charge_time(self):
         c = 100 - self.charge
@@ -381,7 +384,7 @@ class Copter(object):
     def do_charge(self):
         #Уровень зарядки в процентах
         self.start_charge = self.env.now
-        print "Start charge {3} from {0}% to {1}% -- {2}".format(self.charge, 100, self.env.now, self.id)
+        # print "Start charge {3} from {0}% to {1}% -- {2}".format(self.charge, 100, self.env.now, self.id)
         # yield self.env.timeout(c / self.CHARGE_SPEED)
         # self.charge = 100
         # print "End charge {1} -- {0}".format(self.env.now, self.id)
@@ -403,7 +406,7 @@ class Processor(object):
 
     def process_ticket(self, star_location, end_location, mass, task_id):
 
-        print "#### strt task {0}".format(task_id)
+        # print "#### strt task {0}".format(task_id)
         if task_id == 0:
             yield self.env.timeout(0)
         start = self.env.now
@@ -411,7 +414,7 @@ class Processor(object):
             self.map.find_way(star_location[0], end_location[0], star_location[1], end_location[1]))
         if way is None or len(way) <= 1:
             return
-        print way
+        # print way
         copter = Copter(env=self.env, map=self.map)
         # flying_range = (Copter.DISCHARGE_SPEED / (copter.max_speed / (1 - (mass / copter.MAX_MASS)))) * (copter.charge / 100)
         flying_range = (copter.max_speed / (1 - (mass / copter.MAX_MASS))) * (
@@ -421,9 +424,9 @@ class Processor(object):
         c_time = 0
         while True:
             best_point = self.map.find_point_in_range(way[counter], [w for w in way[counter + 1:]], flying_range)
-            print best_point
+            # print best_point
             if best_point is None:
-                print "ERROR in way. Flying range too small"
+                # print "ERROR in way. Flying range too small"
                 return
             b_point = self.map.get_point(best_point[0][0], best_point[0][1])
             distance = self.map.calc(best_point[0][0], way[counter][0], best_point[0][1], way[counter][1])
@@ -461,7 +464,7 @@ class Processor(object):
                 end = self.env.now
                 self.res.append((end - start, task_id))
                 break
-        print "#### end task {0}".format(task_id)
+        # print "#### end task {0}".format(task_id)
 
 
 def timeout(env, time):
@@ -521,7 +524,7 @@ class Gyro:
 
     def move(self, x, y):
         self.canvas.move(self.id, self.x - x, self.y - y)
-        print "move to {0}".format((x, y))
+        # print "move to {0}".format((x, y))
         self.x = x
         self.y = y
 
@@ -529,38 +532,74 @@ class Gyro:
 # map = Map(simpy.Environment(), 1, 1, 10240, 10240, points=12 * 12)
 # Draw(map)
 
-if __name__ == "__main__":
+class TestModel:
+    def __init__(self, tasks, map_h, map_w, map_points, speed_list, discharge_list):
+        self.res = []
+        for t in discharge_list:
+            res = []
+            for j in speed_list:
+                Config.MAX_SPEED = j
+                Config.DISCHARGE_SPEED = t
+                env = simpy.Environment()
+                copters = []
+                map = Map(env, 1, 1, map_w, map_h, points=map_points)
+                p = Processor(map, env, 10000)
+                c = 1
+                for i in tasks:
+                    env.process(p.process_ticket(i[0], i[1], i[2], i[3]))
+                    if c % 100 == 0:
+                        env.process(timeout(env, 30))
+                    c += 1
+                env.run()
+                res.append((j, mean([x for (x, y) in p.res])))
+            self.res.append((t, res))
 
-    # v = map.find_point(235, 642)
-    # way = map.find_way(235, 854, 920, 150)
-    res = []
+    def plot(self, amplitude, color):
+        fig, ax = plt.subplots(figsize=(3, 4), subplot_kw={'axisbg':'#EEEEEE', 'axisbelow': True})
+        rs = [y for x, y in self.res if amplitude - 0.001 <= x <= amplitude + 0.001]
+        if len(rs) == 0:
+            print "ERROR"
+            raise SystemExit
+        res = rs[0]
+        ax.plot([x for (x, y) in res], [y for (x, y) in res], color=color)
+        return fig
+
+
+if __name__ == "__main__":
     tasks = []
-    for i in range(0, 100):
+    for i in range(0, 1):
             tasks.append((
                 (10240 * random.random(), 10240 * random.random()), (100 * random.random(), 100 * random.random()),
                     random.random(), i))
-    size = 8
-    for j in (80, 90, 110, 140):
-        Config.MAX_SPEED = j
-        env = simpy.Environment()
-        copters = []
-        map = Map(env, 1, 1, 10240, 10240, points=size * size)
-        p = Processor(map, env, 10000)
-        c = 1
-        for i in tasks:
-            # copter = Copter(env, map)
-            # env.process(copter.run(1, (1024 * random.random(), 1024 * random.random()),
-            #                        (1024 * random.random(), 1024 * random.random()), i))
-            env.process(p.process_ticket(i[0], i[1], i[2], i[3]))
-            if c % 100 == 0:
-                env.process(timeout(env, 30))
-            c += 1
-        env.run()
-        res.append((j, mean([x for (x, y) in p.res])))
 
-    plt.figure("Среднее время доставки 1")
-    plt.plot([x for (x, y) in res], [y for (x, y) in res])
-    plt.show()
+    test = TestModel(tasks, 10240, 10240, 8 * 8, linspace(80, 150, num=5), linspace(0.01, 0.1, num=10))
+    widget = ipywidgets.StaticInteract(test.plot, amplitude=ipywidgets.RangeWidget(0.01, 0.1, 0.01), color=ipywidgets.RadioWidget(['blue', 'green']))
+
+    # res = []po
+    # tasks = []
+    # for i in range(0, 100):
+    #         tasks.append((
+    #             (10240 * random.random(), 10240 * random.random()), (100 * random.random(), 100 * random.random()),
+    #                 random.random(), i))
+    # size = 8
+    # for j in (80, 90, 110, 140):
+    #     Config.MAX_SPEED = j
+    #     env = simpy.Environment()
+    #     copters = []
+    #     map = Map(env, 1, 1, 10240, 10240, points=size * size)
+    #     p = Processor(map, env, 10000)
+    #     c = 1
+    #     for i in tasks:
+    #         env.process(p.process_ticket(i[0], i[1], i[2], i[3]))
+    #         if c % 100 == 0:
+    #             env.process(timeout(env, 30))
+    #         c += 1
+    #     env.run()
+    #     res.append((j, mean([x for (x, y) in p.res])))
+    #
+    # plt.figure("Среднее время доставки 1")
+    # plt.plot([x for (x, y) in res], [y for (x, y) in res])
+    # plt.show()
 
     # Draw(map)
     # for i in range(0, 100):
