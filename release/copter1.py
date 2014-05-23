@@ -2,6 +2,7 @@
 import math
 from multiprocessing import Lock
 from numpy import mean, linspace
+import numpy
 import random
 import ipywidgets
 import matplotlib.pyplot as plt
@@ -9,6 +10,8 @@ import simpy
 from config import Config
 
 __author__ = 'root'
+
+numpy.seterr(divide='ignore', invalid='ignore')
 
 
 class Copter(object):
