@@ -342,10 +342,17 @@ class Map(object):
 
 class TestModel:
     def __init__(self, tasks, map_h, map_w, map_points, speed_list, discharge_list):
+        #среднее время доставки
         self.res = []
+        #максимальное
+        self.rs_max = []
+        #минимальное
+        self.rs_min = []
         self.speed_list = speed_list
         for t in discharge_list:
             res = []
+            res_max = []
+            res_min = []
             for j in speed_list:
                 Config.MAX_SPEED = j
                 Config.DISCHARGE_SPEED = t
@@ -360,8 +367,13 @@ class TestModel:
                     copters.append(copter)
                 env.run()
                 data = [(copters[i].time ) for i in range(0, len(copters)) if copters[i].time > 0]
-                res.append((j, mean(data)))
+                if len(data) > 0:
+                    res.append((j, mean(data)))
+                    res_max.append((j, max(data)))
+                    res_min.append((j, min(data)))
             self.res.append((t, res))
+            self.rs_max.append((t, res_max))
+            self.rs_min.append((t, res_min))
 
     def plot(self, discharge_time, color):
         fig, ax = plt.subplots(figsize=(4, 3),
@@ -369,16 +381,27 @@ class TestModel:
                                        'axisbelow':True})
         ax.grid(color='w', linewidth=2, linestyle='solid')
         rs = [y for x, y in self.res if discharge_time - 0.001 <= x <= discharge_time + 0.001]
+        rs_max = [y for x, y in self.rs_max if discharge_time - 0.001 <= x <= discharge_time + 0.001]
+        rs_min = [y for x, y in self.rs_min if discharge_time - 0.001 <= x <= discharge_time + 0.001]
+
         if len(rs) == 0:
             print "ERROR"
             raise SystemExit
         res = rs[0]
+        res_max = rs_max[0]
+        res_min = rs_min[0]
         # print rs[0], amplitude
-        ax.plot([x for (x, y) in res], [y for (x, y) in res], color=color,
+        ax.plot([x for (x, y) in res], [y for (x, y) in res], color, [x for (x, y) in res_max],
+                [y for (x, y) in res_max], "red",
+                [x for (x, y) in res_min], [y for (x, y) in res_min], "yellow",
                 lw=5, alpha=0.4)
+        # ax.plot([x for (x, y) in res_max], [y for (x, y) in res_max], color="red",
+        #         lw=5, alpha=0.4)
+        # ax.plot([x for (x, y) in res_min], [y for (x, y) in res_min], color="green",
+        #         lw=5, alpha=0.4)
         ax.set_xlim(min(self.speed_list), max(self.speed_list))
         # print max(max(y) for x, y in [y for x, y in self.res])
-        ax.set_ylim(0, 150)
+        ax.set_ylim(0, 200)
         # ax.set_xlim(0, 10)
         # ax.set_ylim(-1.1, 1.1)
         return fig
@@ -396,6 +419,14 @@ class TestModel:
         # ax.set_xlim(0, 10)
         # ax.set_ylim(-1.1, 1.1)
         # return fig
+
+        def __analyze_data(self, d_t):
+            res = []
+            rs = [y for x, y in self.res if d_t - 0.001 <= x <= d_t + 0.001]
+
+
+
+
 
 if __name__ == "__main__":
     info = []

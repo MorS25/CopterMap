@@ -535,8 +535,14 @@ class Gyro:
 class TestModel:
     def __init__(self, tasks, map_h, map_w, map_points, speed_list, discharge_list):
         self.res = []
+        #максимальное
+        self.rs_max = []
+        #минимальное
+        self.rs_min = []
         for t in discharge_list:
             res = []
+            res_max = []
+            res_min = []
             for j in speed_list:
                 Config.MAX_SPEED = j
                 Config.DISCHARGE_SPEED = t
@@ -551,17 +557,31 @@ class TestModel:
                         env.process(timeout(env, 30))
                     c += 1
                 env.run()
-                res.append((j, mean([x for (x, y) in p.res])))
+                if len([x for (x, y) in p.res]) > 0:
+                    res.append((j, mean([x for (x, y) in p.res])))
+                    res_max.append((j, max([x for (x, y) in p.res])))
+                    res_min.append((j, min([x for (x, y) in p.res])))
             self.res.append((t, res))
+            self.rs_max.append((t, res_max))
+            self.rs_min.append((t, res_min))
 
-    def plot(self, amplitude, color):
+    def plot(self, discharge_time, color):
         fig, ax = plt.subplots(figsize=(3, 4), subplot_kw={'axisbg':'#EEEEEE', 'axisbelow': True})
-        rs = [y for x, y in self.res if amplitude - 0.001 <= x <= amplitude + 0.001]
+        rs = [y for x, y in self.res if discharge_time - 0.001 <= x <= discharge_time + 0.001]
+        rs_max = [y for x, y in self.rs_max if discharge_time - 0.001 <= x <= discharge_time + 0.001]
+        rs_min = [y for x, y in self.rs_min if discharge_time - 0.001 <= x <= discharge_time + 0.001]
+
         if len(rs) == 0:
             print "ERROR"
             raise SystemExit
         res = rs[0]
-        ax.plot([x for (x, y) in res], [y for (x, y) in res], color=color)
+        res_max = rs_max[0]
+        res_min = rs_min[0]
+        # ax.plot([x for (x, y) in res], [y for (x, y) in res], color=color)
+        ax.plot([x for (x, y) in res], [y for (x, y) in res], color, [x for (x, y) in res_max],
+                [y for (x, y) in res_max], "red",
+                [x for (x, y) in res_min], [y for (x, y) in res_min], "yellow",
+                lw=5, alpha=0.4)
         return fig
 
 
