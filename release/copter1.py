@@ -5,10 +5,11 @@ from numpy import mean, linspace
 import numpy
 import random
 import ipywidgets
+from matplotlib import cm
 import matplotlib.pyplot as plt
 import simpy
 from config import Config
-
+from mpl_toolkits.mplot3d import Axes3D
 __author__ = 'root'
 
 numpy.seterr(divide='ignore', invalid='ignore')
@@ -425,7 +426,94 @@ class TestModel:
             rs = [y for x, y in self.res if d_t - 0.001 <= x <= d_t + 0.001]
 
 
+class TestModel3d:
+    def __init__(self, tasks, map_h, map_w, map_points, speed_list, discharge_list, charge_list):
+        self.res = []
+        #максимальное
+        self.rs_max = []
+        #минимальное
+        self.rs_min = []
+        for v in discharge_list:
+            res_v = []
 
+            for t in charge_list:
+                res = []
+                # res_max = []
+                # res_min = []
+                for j in speed_list:
+                    Config.MAX_SPEED = j
+                    Config.DISCHARGE_SPEED = v
+                    Config.CHARGE_SPEED = t
+                    env = simpy.Environment()
+                    copters = []
+                    map = Map(env, 1, 1, map_w, map_h, points=map_points)
+                    jo = 0
+                    for i in tasks:
+                        copter = Copter(env, map, j, i[0], i[1], i[2], id=jo)
+                        jo += 1
+                        env.timeout(15)
+                        copters.append(copter)
+                    env.run()
+                    data = [(copters[i].time ) for i in range(0, len(copters)) if copters[i].time > 0]
+                        # res_max.append((j, max([x for (x, y) in p.res])))
+                        # res_min.append((j, min([x for (x, y) in p.res])))
+                    if len(data) > 0:
+                        res.append((j, mean(data)))
+
+                res_v.append((t, res))
+                # self.rs_max.append((t, res_max))
+                # self.rs_min.append((t, res_min))
+            self.res.append((v, res_v))
+
+    def plot(self, discharge_time, color):
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+
+        # fig, ax = plt.subplots(figsize=(3, 4), subplot_kw={'axisbg':'#EEEEEE', 'axisbelow': True})
+        rs = [y for x, y in self.res if discharge_time - 0.001 <= x <= discharge_time + 0.001]
+
+
+        if len(rs) == 0:
+            print "ERROR"
+            raise SystemExit
+        res = rs[0]
+        # res_max = rs_max[0]
+        # res_min = rs_min[0]
+        rx = []
+        ry = []
+        for x, vx in res:
+            rx.append(x)
+            for y, vy in vx:
+                if y not in ry:
+                    ry.append(y)
+
+        rz = numpy.zeros((len(rx)+1, len(ry)+1), 'Float32')
+        i = 0
+        j = 0
+        d = {}
+        for x, vx in res:
+            for y, z in vx:
+                rz[i, j] = z
+                d[(x,y)] = z
+                j+=1
+            j=0
+            i+=1
+
+        X, Y = numpy.meshgrid(rx,ry)
+        zs = numpy.array([self.__fun(x,y,d) for x,y in zip(numpy.ravel(X), numpy.ravel(Y))])
+        Z = zs.reshape(X.shape)
+        # ax.plot([x for (x, y) in res], [y for (x, y) in res], color=color)
+        ax.plot_surface(X, Y, Z, rstride=1, cstride=1, cmap=cm.RdBu)
+        # Xs = numpy.arange(min(rx), max(rx), 0.005)
+        # Ys = numpy.arange(min(ry), max(ry), 0.005)
+        # Xs, Ys = numpy.meshgrid(Xs, Ys)
+        # Zs = 41.0909875400163+15.3581432751401*numpy.log(Xs)+-90.9714747515509*Ys+64.9652271333282*Ys**2
+        # ax.plot_surface(Xs, Ys, Zs, rstride=4, cstride=4, alpha=0.4,cmap=cm.jet)
+        # plt.show()
+        return fig
+
+    def __fun(self, x, y, r):
+        return r[(x,y)]
 
 
 if __name__ == "__main__":
@@ -437,5 +525,6 @@ if __name__ == "__main__":
         tasks.append((
             (10240 * random.random(), 10240 * random.random()), (10240 * random.random(), 10240 * random.random()),
             (3 * random.random())))
-    test = TestModel(tasks, 10240, 10240, 8 * 8, linspace(80, 150, num=5), linspace(0.01, 0.1, num=10))
+    test = TestModel3d(tasks, 10240, 10240, 8 * 8, linspace(80, 150, num=5), linspace(0.01, 0.1, num=10), [20, 21])
+    test.plot(0.03, "red")
     widget = ipywidgets.StaticInteract(test.plot, amplitude=ipywidgets.RangeWidget(0.01, 0.1, 0.01), color=ipywidgets.RadioWidget(['blue', 'green']))
