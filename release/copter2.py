@@ -1,6 +1,8 @@
 #coding=utf8
+import numpy
 from IPython import get_ipython
 import ipywidgets
+from matplotlib import cm
 from config import Config
 from IPython.display import HTML
 import Tkinter as tk
@@ -10,6 +12,7 @@ from numpy import mean, linspace, float64
 import random
 import simpy
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 
 from idGenerator import IdGenerator
 
@@ -419,7 +422,7 @@ class Processor(object):
         # flying_range = (Copter.DISCHARGE_SPEED / (copter.max_speed / (1 - (mass / copter.MAX_MASS)))) * (copter.charge / 100)
         flying_range = (copter.max_speed / (1 - (mass / copter.MAX_MASS))) * (
             copter.charge / 100) / Copter.DISCHARGE_SPEED
-
+        # print way
         counter = 0
         c_time = 0
         while True:
@@ -462,6 +465,7 @@ class Processor(object):
             counter += 1
             if best_point[0] == way[len(way) - 1]:
                 end = self.env.now
+                # print (end - start, task_id)
                 self.res.append((end - start, task_id))
                 break
         # print "#### end task {0}".format(task_id)
@@ -584,16 +588,105 @@ class TestModel:
                 lw=5, alpha=0.4)
         return fig
 
+class TestModel3d:
+    def __init__(self, tasks, map_h, map_w, map_points, speed_list, discharge_list, charge_list):
+        self.res = []
+        #максимальное
+        self.rs_max = []
+        #минимальное
+        self.rs_min = []
+        for v in discharge_list:
+            res_v = []
+
+            for t in charge_list:
+                res = []
+                # res_max = []
+                # res_min = []
+                for j in speed_list:
+                    Config.MAX_SPEED = j
+                    Config.DISCHARGE_SPEED = v
+                    Config.CHARGE_SPEED = t
+                    env = simpy.Environment()
+                    copters = []
+                    map = Map(env, 1, 1, map_w, map_h, points=map_points)
+                    p = Processor(map, env, 10000)
+                    c = 1
+                    for i in tasks:
+                        env.process(p.process_ticket(i[0], i[1], i[2], i[3]))
+                        if c % 100 == 0:
+                            env.process(timeout(env, 30))
+                        c += 1
+                    env.run()
+                    if len([x for (x, y) in p.res]) > 0:
+                        res.append((j, mean([x for (x, y) in p.res])))
+                        # res_max.append((j, max([x for (x, y) in p.res])))
+                        # res_min.append((j, min([x for (x, y) in p.res])))
+                res_v.append((t, res))
+                # self.rs_max.append((t, res_max))
+                # self.rs_min.append((t, res_min))
+            self.res.append((v, res_v))
+
+    def plot(self, discharge_time, color):
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+
+        # fig, ax = plt.subplots(figsize=(3, 4), subplot_kw={'axisbg':'#EEEEEE', 'axisbelow': True})
+        rs = [y for x, y in self.res if discharge_time - 0.001 <= x <= discharge_time + 0.001]
+
+
+        if len(rs) == 0:
+            print "ERROR"
+            raise SystemExit
+        res = rs[0]
+        # res_max = rs_max[0]
+        # res_min = rs_min[0]
+        rx = []
+        ry = []
+        for x, vx in res:
+            rx.append(x)
+            for y, vy in vx:
+                if y not in ry:
+                    ry.append(y)
+
+        rz = numpy.zeros((len(rx)+1, len(ry)+1), 'Float32')
+        i = 0
+        j = 0
+        d = {}
+        for x, vx in res:
+            for y, z in vx:
+                rz[i, j] = z
+                d[(x,y)] = z
+                j+=1
+            j=0
+            i+=1
+
+        X, Y = numpy.meshgrid(rx,ry)
+        zs = numpy.array([self.__fun(x,y,d) for x,y in zip(numpy.ravel(X), numpy.ravel(Y))])
+        Z = zs.reshape(X.shape)
+        # ax.plot([x for (x, y) in res], [y for (x, y) in res], color=color)
+        ax.plot_surface(X, Y, Z, rstride=1, cstride=1, cmap=cm.RdBu)
+        # Xs = numpy.arange(min(rx), max(rx), 0.005)
+        # Ys = numpy.arange(min(ry), max(ry), 0.005)
+        # Xs, Ys = numpy.meshgrid(Xs, Ys)
+        # Zs = 41.0909875400163+15.3581432751401*numpy.log(Xs)+-90.9714747515509*Ys+64.9652271333282*Ys**2
+        # ax.plot_surface(Xs, Ys, Zs, rstride=4, cstride=4, alpha=0.4,cmap=cm.jet)
+        # plt.show()
+        return fig
+
+    def __fun(self, x, y, r):
+        return r[(x,y)]
 
 if __name__ == "__main__":
     tasks = []
-    for i in range(0, 1):
+    for i in range(0, 5):
             tasks.append((
                 (10240 * random.random(), 10240 * random.random()), (100 * random.random(), 100 * random.random()),
                     random.random(), i))
 
-    test = TestModel(tasks, 10240, 10240, 8 * 8, linspace(80, 150, num=5), linspace(0.01, 0.1, num=10))
-    widget = ipywidgets.StaticInteract(test.plot, amplitude=ipywidgets.RangeWidget(0.01, 0.1, 0.01), color=ipywidgets.RadioWidget(['blue', 'green']))
+
+    test = TestModel3d(tasks, 10240, 10240, 8 * 8, linspace(80, 150, num=5), linspace(0.01, 0.03, num=3), [20, 21])
+    test.plot(0.03, "red")
+    # widget = ipywidgets.StaticInteract(test.plot, amplitude=ipywidgets.RangeWidget(0.01, 0.1, 0.01), color=ipywidgets.RadioWidget(['blue', 'green']))
 
     # res = []po
     # tasks = []
