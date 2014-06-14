@@ -126,7 +126,7 @@ class Point:
 
 
 class Map(object):
-    def __init__(self, env, start_x, start_y, last_x, last_y, points=16):
+    def __init__(self, env, start_x, start_y, last_x, last_y, points=16, blocked_points=[]):
         if last_x < start_x or last_y < start_y:
             raise BaseException("Argument error")
         self.last_x = last_x
@@ -137,6 +137,7 @@ class Map(object):
         self.points = []
         self.env = env
         self.copters = []
+        self.blocked_points = blocked_points
         #Вычисление
         counter = int(math.sqrt(points))
         self.weight = counter
@@ -181,7 +182,8 @@ class Map(object):
         for x in range(0, self.weight):
             points_x = []
             for y in range(0, self.weight):
-                points_x.append(Point(x_range + x_range * x, y_range + y_range * y, env=self.env, map=self))
+                if (x, y) not in self.blocked_points:
+                    points_x.append(Point(x_range + x_range * x, y_range + y_range * y, env=self.env, map=self))
                 y += 1
             points.append(points_x)
             x += 1
@@ -537,7 +539,7 @@ class Gyro:
 # Draw(map)
 
 class TestModel:
-    def __init__(self, tasks, map_h, map_w, map_points, speed_list, discharge_list):
+    def __init__(self, tasks, map_h, map_w, map_points, speed_list, discharge_list, blocked_points=[]):
         self.res = []
         #максимальное
         self.rs_max = []
@@ -552,7 +554,7 @@ class TestModel:
                 Config.DISCHARGE_SPEED = t
                 env = simpy.Environment()
                 copters = []
-                map = Map(env, 1, 1, map_w, map_h, points=map_points)
+                map = Map(env, 1, 1, map_w, map_h, points=map_points, blocked_points=blocked_points)
                 p = Processor(map, env, 10000)
                 c = 1
                 for i in tasks:
@@ -589,7 +591,7 @@ class TestModel:
         return fig
 
 class TestModel3d:
-    def __init__(self, tasks, map_h, map_w, map_points, speed_list, discharge_list, charge_list):
+    def __init__(self, tasks, map_h, map_w, map_points, speed_list, discharge_list, charge_list, blocked_points=[]):
         self.res = []
         #максимальное
         self.rs_max = []
@@ -608,7 +610,7 @@ class TestModel3d:
                     Config.CHARGE_SPEED = t
                     env = simpy.Environment()
                     copters = []
-                    map = Map(env, 1, 1, map_w, map_h, points=map_points)
+                    map = Map(env, 1, 1, map_w, map_h, points=map_points, blocked_points=blocked_points)
                     p = Processor(map, env, 10000)
                     c = 1
                     for i in tasks:
