@@ -184,6 +184,8 @@ class Map(object):
             for y in range(0, self.weight):
                 if (x, y) not in self.blocked_points:
                     points_x.append(Point(x_range + x_range * x, y_range + y_range * y, env=self.env, map=self))
+                else:
+                    points_x.append(None)
                 y += 1
             points.append(points_x)
             x += 1
@@ -212,6 +214,8 @@ class Map(object):
         for points_x in self.points:
             j = 0
             for point in points_x:
+                if point is None:
+                    continue
                 value = self.calc(point.x, x, point.y, y)
                 if min is None or value < min[0]:
                     min = value, point, (i, j)
@@ -232,17 +236,18 @@ class Map(object):
         ##Заполняем точки
         points = [(p1[2][0], p1[2][1])]
         while True:
-            if points_m[p2[2][0]][p2[2][1]].weight is not None:
-                break
-            pp = points
-            res = []
-            for p in pp:
-                r_p = self.set_point(p[0], p[1], points_m)
-                for r in r_p:
-                    if r not in res:
-                        res.append(r)
-            points = res
-            #self.print_map()
+            if points_m[p2[2][0]][p2[2][1]] is not None:
+                if points_m[p2[2][0]][p2[2][1]].weight is not None:
+                    break
+                pp = points
+                res = []
+                for p in pp:
+                    r_p = self.set_point(p[0], p[1], points_m)
+                    for r in r_p:
+                        if r not in res:
+                            res.append(r)
+                points = res
+                #self.print_map()
 
         ##Ищем путь
         e_p = points_m[p2[2][0]][p2[2][1]], p2[2][0], p2[2][1]
@@ -672,7 +677,7 @@ class TestModel3d:
         # Xs, Ys = numpy.meshgrid(Xs, Ys)
         # Zs = 41.0909875400163+15.3581432751401*numpy.log(Xs)+-90.9714747515509*Ys+64.9652271333282*Ys**2
         # ax.plot_surface(Xs, Ys, Zs, rstride=4, cstride=4, alpha=0.4,cmap=cm.jet)
-        # plt.show()
+        plt.show()
         return fig
 
     def __fun(self, x, y, r):
@@ -686,7 +691,7 @@ if __name__ == "__main__":
                     random.random(), i))
 
 
-    test = TestModel3d(tasks, 10240, 10240, 8 * 8, linspace(80, 150, num=5), linspace(0.01, 0.03, num=3), [20, 21])
+    test = TestModel3d(tasks, 10240, 10240, 8 * 8, linspace(80, 150, num=5), linspace(0.01, 0.03, num=3), [20, 21], blocked_points=[(0,0)])
     test.plot(0.03, "red")
     # widget = ipywidgets.StaticInteract(test.plot, amplitude=ipywidgets.RangeWidget(0.01, 0.1, 0.01), color=ipywidgets.RadioWidget(['blue', 'green']))
 

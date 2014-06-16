@@ -237,6 +237,8 @@ class Map(object):
             for y in range(0, self.weight):
                 if (x, y) not in self.blocked_points:
                     points_x.append(Point(x_range + x_range * x, y_range + y_range * y, env=self.env))
+                else:
+                    points_x.append(None)
                 y += 1
             points.append(points_x)
             x += 1
@@ -267,6 +269,8 @@ class Map(object):
         for points_x in self.points:
             j = 0
             for point in points_x:
+                if point is None :
+                    continue
                 value = self.__calc(point.x, x, point.y, y)
                 if min is None or value < min[0]:
                     min = value, point, (i, j)
@@ -288,20 +292,22 @@ class Map(object):
         ##Заполняем точки
         points = [(p1[2][0], p1[2][1])]
         while True:
-            if points_m[p2[2][0]][p2[2][1]].weight is not None:
-                break
-            pp = points
-            res = []
-            for p in pp:
-                r_p = self.set_point(p[0], p[1], points_m)
-                for r in r_p:
-                    if r not in res:
-                        res.append(r)
+            if points_m[p2[2][0]][p2[2][1]] is not None:
+                if points_m[p2[2][0]][p2[2][1]].weight is not None:
+                    break
 
-            # #print pp
-            # #print res
-            points = res
-            # self.print_map()
+                pp = points
+                res = []
+                for p in pp:
+                    r_p = self.set_point(p[0], p[1], points_m)
+                    for r in r_p:
+                        if r not in res:
+                            res.append(r)
+
+                # #print pp
+                # #print res
+                points = res
+                # self.print_map()
         ##Ищем путь
         e_p = points_m[p2[2][0]][p2[2][1]], p2[2][0], p2[2][1]
 
@@ -313,7 +319,8 @@ class Map(object):
                     if 0 <= i + e_p[1] < self.weight:
                         for j in range(-1, 2):
                             if 0 <= j + e_p[2] < self.weight and not (i == 0 and j == 0):
-                                if (min_l is None and points_m[e_p[1] + i][e_p[2] + j].weight is not None) or (
+                                if (min_l is None and points_m[e_p[1] + i][e_p[2] + j] is not None
+                                    and points_m[e_p[1] + i][e_p[2] + j].weight is not None) or ( points_m[e_p[1] + i][e_p[2] + j] is not None and
                                             points_m[e_p[1] + i][e_p[2] + j].weight is not None and min_l[0].weight >
                                         points_m[e_p[1] + i][e_p[2] + j].weight):
                                     min_l = points_m[e_p[1] + i][e_p[2] + j], e_p[1] + i, e_p[2] + j
@@ -333,13 +340,15 @@ class Map(object):
         for i in range(-1, 2):
             if 0 <= i + x < self.weight:
                 for j in range(-1, 2):
-                    if 0 <= j + y < self.weight and not (i == 0 and j == 0):
-                        w = points[x][y].weight + self.__calc(
-                            points[x + i][y + j].x, points[x][y].x, points[x + i][y + j].y,
-                            points[x][y].y)
-                        if (w < points[x + i][y + j].weight or points[x + i][y + j].weight is None):
-                            points[x + i][y + j].weight = w
-                            ret_points.append((x + i, y + j))
+                    if points[x][y] is not None:
+                        if 0 <= j + y < self.weight and not (i == 0 and j == 0) and points[x][y] is not None \
+                            and points[x + i][y + j] is not None:
+                            w = points[x][y].weight + self.__calc(
+                                points[x + i][y + j].x, points[x][y].x, points[x + i][y + j].y,
+                                points[x][y].y)
+                            if (w < points[x + i][y + j].weight or points[x + i][y + j].weight is None):
+                                points[x + i][y + j].weight = w
+                                ret_points.append((x + i, y + j))
         return ret_points
 
 class TestModel:
@@ -510,7 +519,7 @@ class TestModel3d:
         # Xs, Ys = numpy.meshgrid(Xs, Ys)
         # Zs = 41.0909875400163+15.3581432751401*numpy.log(Xs)+-90.9714747515509*Ys+64.9652271333282*Ys**2
         # ax.plot_surface(Xs, Ys, Zs, rstride=4, cstride=4, alpha=0.4,cmap=cm.jet)
-        # plt.show()
+        #plt.show()
         return fig
 
     def __fun(self, x, y, r):
@@ -526,6 +535,8 @@ if __name__ == "__main__":
         tasks.append((
             (10240 * random.random(), 10240 * random.random()), (10240 * random.random(), 10240 * random.random()),
             (3 * random.random())))
-    test = TestModel3d(tasks, 10240, 10240, 8 * 8, linspace(80, 150, num=5), linspace(0.01, 0.1, num=10), [20, 21])
+    test = TestModel(tasks, 10240, 10240, 8 * 8, linspace(80, 150, num=5), linspace(0.01, 0.1, num=10), blocked_list=[(0, 0)])
     test.plot(0.03, "red")
-    widget = ipywidgets.StaticInteract(test.plot, amplitude=ipywidgets.RangeWidget(0.01, 0.1, 0.01), color=ipywidgets.RadioWidget(['blue', 'green']))
+    ipywidgets.StaticInteract(test.plot, discharge_time=ipywidgets.RangeWidget(0.01, 0.07, 0.01), color=ipywidgets.RadioWidget(['green']))
+
+    # widget = ipywidgets.StaticInteract(test.plot, amplitude=ipywidgets.RangeWidget(0.01, 0.1, 0.01), color=ipywidgets.RadioWidget(['blue', 'green']))
